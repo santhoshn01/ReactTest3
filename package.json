@@ -42,6 +42,9 @@
     ]
   },
   "devDependencies": {
+    "mochawesome": "^7.1.3",
+    "mochawesome-merge": "^4.3.0", 
+    "marge": "^1.0.1",
     "cypress": "^14.5.2",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.5",
