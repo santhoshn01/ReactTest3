@@ -19,97 +19,51 @@ pipeline {
     stages {
         
         stage('Conditional Build Execution') {
-                steps {
-                    script {
-                        def isTimer = false
-                        def causes = currentBuild.getBuildCauses()
-                        for (cause in causes) {
-                            if (cause.toString().contains('TimerTrigger')) {
-                                isTimer = true
-                                break
-                            }
+            steps {
+                script {
+                    def isTimer = false
+                    def causes = currentBuild.getBuildCauses()
+                    for (cause in causes) {
+                        if (cause.toString().contains('TimerTrigger')) {
+                            isTimer = true
+                            break
                         }
+                    }
 
-                        if (env.BRANCH_NAME == 'main' && isTimer) {
-                            echo "Skipping scheduled build on 'main' branch (manual only)"
-                            currentBuild.result = 'NOT_BUILT'
-                            error("Aborting scheduled build on 'main'")
-                        } else {
-                            echo "Proceeding with build for branch: ${env.BRANCH_NAME}"
-                        }
+                    if (env.BRANCH_NAME == 'main' && isTimer) {
+                        echo "Skipping scheduled build on 'main' branch (manual only)"
+                        currentBuild.result = 'NOT_BUILT'
+                        error("Aborting scheduled build on 'main'")
+                    } else {
+                        echo "Proceeding with build for branch: ${env.BRANCH_NAME}"
                     }
                 }
             }
+        }
 
         
-            stage('Checkout') {
-                steps {
-                    checkout scm
-                }
+        stage('Checkout') {
+            steps {
+                checkout scm
             }
-}
+        }
+
 
         
         stage('Install Cypress Binary') {
             steps {
-            script {
-                def cypressBinaryPath = "${env.USERPROFILE}\\.cache\\Cypress\\${env.CYPRESS_VERSION ?: '14.5.2'}\\Cypress.exe"
+                script {
+                    def cypressBinaryPath = "${env.USERPROFILE}\\.cache\\Cypress\\${env.CYPRESS_VERSION ?: '14.5.2'}\\Cypress.exe"
 
-                if (fileExists(cypressBinaryPath)) {
-                    echo "✅ Cypress already installed at ${cypressBinaryPath}"
-                } else {
-                    echo "⬇️ Installing Cypress binary..."
-                    bat 'npx cypress install'
+                    if (fileExists(cypressBinaryPath)) {
+                        echo "✅ Cypress already installed at ${cypressBinaryPath}"
+                    } else {
+                        echo "⬇️ Installing Cypress binary..."
+                        bat 'npx cypress install'
+                    }
                 }
             }
         }
-    }
-
-        stage('Install Cypress Binary') {
-   steps {
-       script {
-           def cypressBinaryPath = "${env.USERPROFILE}\\.cache\\Cypress\\${env.CYPRESS_VERSION ?: '14.5.2'}\\Cypress.exe"
-
-           if (fileExists(cypressBinaryPath)) {
-               echo "✅ Cypress already installed at ${cypressBinaryPath}"
-           } else {
-               echo "⬇️ Installing Cypress binary..."
-               bat 'npx cypress install'
-           }
-       }
-   }
-}
-
-
-
-        stage('Run Tests (Jest)') {
-   steps {
-       bat 'npm test -- --ci --coverage --passWithNoTests'
-   }
-   post {
-       always {
-           archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
-           publishHTML(target: [
-               reportDir: 'coverage',
-               reportFiles: 'lcov-report/index.html',
-               reportName: 'Jest Coverage Report',
-               keepAll: true,
-               alwaysLinkToLastBuild: true
-           ])
-       }
-       failure {
-           script {
-               def testReport = "coverage/lcov-report/index.html"
-               if (fileExists(testReport)) {
-                   sendStageFailureMail("Jest Unit Tests", testReport)
-               }
-           }
-       }
-   }
-}
-
-
-
 
         stage('Run Tests (Jest)') {
             steps {
@@ -176,20 +130,20 @@ pipeline {
             }
         }
 
-//     stage('Prettier Format Check') {
-//     steps {
-//        script {
-//            def result = bat(script: 'npx prettier --write . > prettier-report.txt', returnStatus: true)
-//            if (result != 0) {
-//                echo "Prettier formatting issues found."
-//                sendStageFailureMail("Prettier Format Check", "prettier-report.txt")
-//                error "Stopping pipeline due to Prettier formatting issues."
-//            } else {
-//                echo "Prettier check passed with no issues."
-//            }
-//        }
-//    }
-// }
+    // stage('Prettier Format Check') {
+    //     steps {
+    //        script {
+    //            def result = bat(script: 'npx prettier --write . > prettier-report.txt', returnStatus: true)
+    //            if (result != 0) {
+    //                echo "Prettier formatting issues found."
+    //                sendStageFailureMail("Prettier Format Check", "prettier-report.txt")
+    //                error "Stopping pipeline due to Prettier formatting issues."
+    //            } else {
+    //                echo "Prettier check passed with no issues."
+    //            }
+    //        }
+    //    }
+    // }
 
 
         stage('SonarQube Analysis') {
@@ -207,11 +161,12 @@ pipeline {
                                 -Dsonar.sourceEncoding=UTF-8 ^
                                 -Dsonar.verbose=true
                                 '''
-                            }
-                        }        
-                    }
+                        }
+                    }        
                 }
-            }                                               
+            }
+        }
+                                                       
 
         stage('Generate SonarQube Report') {
             steps {
@@ -330,18 +285,18 @@ Jenkins
                 script {
                     if (env.DEPLOY_LOCAL == 'true') {
                         node('LocalMachine') {
-                        try {
-                            copyBuildArtifacts()
-                            deployReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
-                        } catch (err) {
-                            echo "Deployment failed, retrying once..."
                             try {
+                                copyBuildArtifacts()
                                 deployReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
-                            } catch (secondErr) {
-                                echo "Second attempt failed. Rolling back..."
-                                rollbackReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
-                                error "Deployment failed after retry. Rollback triggered."
-                            }
+                            } catch (err) {
+                                echo "Deployment failed, retrying once..."
+                                try {
+                                    deployReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
+                                } catch (secondErr) {
+                                    echo "Second attempt failed. Rolling back..."
+                                    rollbackReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
+                                    error "Deployment failed after retry. Rollback triggered."
+                                }
                             }
                         }
                     }
@@ -365,7 +320,7 @@ Jenkins
                     }
                 }
             }
-}
+        }
     }
 
     post {
