@@ -48,7 +48,11 @@ pipeline {
             }
         }
 
-
+        stage('Install Dependencies') {
+            steps {
+                bat 'npm install'
+            }
+        }
         
         stage('Install Cypress Binary') {
             steps {
