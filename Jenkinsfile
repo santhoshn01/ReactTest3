@@ -7,7 +7,9 @@ pipeline {
         MULLAI_DEPLOY_DIR = 'E:\\Jenkins'
         EMAIL_RECIPIENTS = 'santhosh_n@chelsoft.com'
         JENKINS_BASE_URL = 'http://192.168.100.92:8080/'
+        SONAR_HOST = 'http://192.168.100.92:9000'
         NPM_CACHE_DIR = "${env.WORKSPACE}\\.npm"
+        SONAR_PROJECT_KEY = 'reacttest3'
     }
 
     triggers {
@@ -47,121 +49,148 @@ pipeline {
             }
 }
 
-
-        stage('Install Dependencies') {
-    steps {
-        script {
-            if (fileExists('node_modules')) {
-                echo "✅ Skipping npm install - node_modules already exists."
-            } else {
-                echo "📦 Installing dependencies..."
-                bat """
-                    if not exist "%NPM_CACHE_DIR%" mkdir "%NPM_CACHE_DIR%"
-                    npm config set cache "%NPM_CACHE_DIR%" --global
-                    npm install
-                """
-            }
-        }
-    }
-}
-
         
         stage('Install Cypress Binary') {
-    steps {
-        script {
-            def cypressBinaryPath = "${env.USERPROFILE}\\.cache\\Cypress\\${env.CYPRESS_VERSION ?: '14.5.2'}\\Cypress.exe"
-
-            if (fileExists(cypressBinaryPath)) {
-                echo "✅ Cypress already installed at ${cypressBinaryPath}"
-            } else {
-                echo "⬇️ Installing Cypress binary..."
-                bat 'npx cypress install'
-            }
-        }
-    }
-}
-
-
-
-        stage('Lint Check (ESLint Auto Fix)') {
             steps {
-                script {
-                    try {
-                        bat 'npx eslint . --fix'
-                    } catch (err) {
-                        echo "ESLint failed even after auto-fix. Continuing pipeline."
-                    }
+            script {
+                def cypressBinaryPath = "${env.USERPROFILE}\\.cache\\Cypress\\${env.CYPRESS_VERSION ?: '14.5.2'}\\Cypress.exe"
+
+                if (fileExists(cypressBinaryPath)) {
+                    echo "✅ Cypress already installed at ${cypressBinaryPath}"
+                } else {
+                    echo "⬇️ Installing Cypress binary..."
+                    bat 'npx cypress install'
                 }
             }
         }
+    }
+
+        stage('Install Cypress Binary') {
+   steps {
+       script {
+           def cypressBinaryPath = "${env.USERPROFILE}\\.cache\\Cypress\\${env.CYPRESS_VERSION ?: '14.5.2'}\\Cypress.exe"
+
+           if (fileExists(cypressBinaryPath)) {
+               echo "✅ Cypress already installed at ${cypressBinaryPath}"
+           } else {
+               echo "⬇️ Installing Cypress binary..."
+               bat 'npx cypress install'
+           }
+       }
+   }
+}
+
+
+
+        stage('Run Tests (Jest)') {
+   steps {
+       bat 'npm test -- --ci --coverage --passWithNoTests'
+   }
+   post {
+       always {
+           archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
+           publishHTML(target: [
+               reportDir: 'coverage',
+               reportFiles: 'lcov-report/index.html',
+               reportName: 'Jest Coverage Report',
+               keepAll: true,
+               alwaysLinkToLastBuild: true
+           ])
+       }
+       failure {
+           script {
+               def testReport = "coverage/lcov-report/index.html"
+               if (fileExists(testReport)) {
+                   sendStageFailureMail("Jest Unit Tests", testReport)
+               }
+           }
+       }
+   }
+}
 
 
 
 
         stage('Run Tests (Jest)') {
-    steps {
-        bat 'npm test -- --ci --coverage --passWithNoTests'
-    }
-    post {
-        always {
-            archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
-            publishHTML(target: [
-                reportDir: 'coverage',
-                reportFiles: 'lcov-report/index.html',
-                reportName: 'Jest Coverage Report',
-                keepAll: true,
-                alwaysLinkToLastBuild: true
-            ])
-        }
-        failure {
-            script {
-                def testReport = "coverage/lcov-report/index.html"
-                if (fileExists(testReport)) {
-                    sendStageFailureMail("Jest Unit Tests", testReport)
-                }
-            }
-        }
-    }
-}
-
-        stage('Run E2E Tests (Cypress)') {
-    steps {
-        script {
-            try {
-                bat 'npm run build'
-                // Serve React build (assumes 'serve' is installed: npm install -g serve)
-                bat 'start /B cmd /C "npx serve -s build -l 3000"'
-                // Run Cypress in headless mode using Chrome
-                bat 'npx cypress run --browser electron'
-            } catch (err) {
-                echo "Cypress E2E tests failed."
-                archiveArtifacts artifacts: 'cypress/screenshots/**/*,cypress/videos/**/*', allowEmptyArchive: true
-                sendStageFailureMail("Cypress E2E Tests", "cypress/videos/**")
-                error "Stopping pipeline due to Cypress test failure."
-            }
-        }
-    }
-    post {
-        always {
-            // Archive screenshots and videos for visibility
-            archiveArtifacts artifacts: 'cypress/screenshots/**/*,cypress/videos/**/*', allowEmptyArchive: true
-        }
-    }
-}
-
-        stage('Prettier Format Check') {
             steps {
-                script {
-                    try {
-                        bat 'npx prettier --write . > prettier-report.txt'
-                    } catch (err) {
-                        echo "Prettier formatting issues found."
-                        sendStageFailureMail("Prettier Format Check", "prettier-report.txt")
-                        error "Stopping pipeline due to Prettier issues."
+                bat 'npm test -- --ci --coverage --passWithNoTests'
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
+                    publishHTML(target: [
+                        reportDir: 'coverage',
+                        reportFiles: 'lcov-report/index.html',
+                        reportName: 'Jest Coverage Report',
+                        keepAll: true,
+                        alwaysLinkToLastBuild: true
+                    ])
+                }
+                failure {
+                    script {
+                        def testReport = "coverage/lcov-report/index.html"
+                        if (fileExists(testReport)) {
+                            sendStageFailureMail("Jest Unit Tests", testReport)
+                        }
                     }
                 }
             }
         }
+
+        stage('Run E2E Tests (Cypress)') {
+            steps {
+                script {
+                    bat 'npm run build'
+                    bat 'start /B cmd /C "npx serve -s build -l 3000"'
+
+                    // Wait for server using pure CMD
+                    bat """
+                    @echo off
+                    setlocal EnableDelayedExpansion
+
+                    set "MAX_ATTEMPTS=30"
+                    set "ATTEMPT=0"
+
+                    :loop
+                    curl -s -o nul http://localhost:3000
+                    if !errorlevel! == 0 (
+                        echo ✅ App is up and responding.
+                        exit /b 0
+                    )
+
+                    set /a ATTEMPT+=1
+                    echo Attempt !ATTEMPT! failed. Waiting...
+
+                    if !ATTEMPT! GEQ !MAX_ATTEMPTS! (
+                    echo ❌ App did not respond after !MAX_ATTEMPTS! attempts.
+                    exit /b 1
+                    )
+
+                    timeout /t 1 > nul
+                    goto loop
+                    """
+
+                    // Run Cypress after confirming app is up
+                    bat 'npx cypress run'
+                }
+            }
+        }
+
+//     stage('Prettier Format Check') {
+//     steps {
+//        script {
+//            def result = bat(script: 'npx prettier --write . > prettier-report.txt', returnStatus: true)
+//            if (result != 0) {
+//                echo "Prettier formatting issues found."
+//                sendStageFailureMail("Prettier Format Check", "prettier-report.txt")
+//                error "Stopping pipeline due to Prettier formatting issues."
+//            } else {
+//                echo "Prettier check passed with no issues."
+//            }
+//        }
+//    }
+// }
+
 
         stage('SonarQube Analysis') {
             steps {
@@ -172,74 +201,76 @@ pipeline {
                                 sonar-scanner ^
                                 -Dsonar.projectKey=reacttest3 ^
                                 -Dsonar.sources=. ^
-                                -Dsonar.exclusions=node_modules/**,build/** ^
+                                -Dsonar.inclusions=**/*.js,**/*.jsx ^
+                                -Dsonar.exclusions=node_modules/**,build/**,coverage/** ^
                                 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
-                                -Dsonar.sourceEncoding=UTF-8
-                            '''
+                                -Dsonar.sourceEncoding=UTF-8 ^
+                                -Dsonar.verbose=true
+                                '''
+                            }
+                        }        
+                    }
+                }
+            }                                               
+
+        stage('Generate SonarQube Report') {
+            steps {
+                withCredentials([string(credentialsId: 'JenkinsHello', variable: 'SONAR_TOKEN')]) {
+                    script {
+                        def reportDir = "sonar-report-${env.BUILD_NUMBER}"
+                        def reportPath = "${reportDir}/index.html"
+
+                        bat """
+                            if not exist ${reportDir} mkdir ${reportDir}
+                            curl -s -u %SONAR_TOKEN%: "${env.SONAR_HOST}/api/issues/search?componentKeys=reacttest3&resolved=false" -o sonar-issues.json
+                        """
+
+                        def json = readJSON file: 'sonar-issues.json'
+
+                        def html = """
+                        <html><head><title>Sonar Issues Report</title></head><body>
+                        <h2>Unresolved Sonar Issues</h2>
+                        <table border="1" cellpadding="5" cellspacing="0">
+                        <tr><th>Type</th><th>Severity</th><th>Message</th><th>File</th></tr>
+                        """
+
+                        json.issues.each { issue ->
+                            def file = issue.component
+                            def message = issue.message
+                            def severity = issue.severity
+                            def type = issue.type
+                            def line = issue.line ?: ''
+                            html += "<tr><td>${type}</td><td>${severity}</td><td>${message}</td><td>${file}:${line}</td></tr>"
+                        }
+
+                        html += "</table></body></html>"
+                        writeFile file: reportPath, text: html
+
+                        archiveArtifacts artifacts: "${reportDir}/**", fingerprint: true
+                    }
+                }
+            }
+        }
+
+        stage('Wait for Sonar Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    script {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            echo "SonarQube Quality Gate failed: ${qg.status}"
+                            def reportPath = "sonar-report-${env.BUILD_NUMBER}/index.html"
+                            if (fileExists(reportPath)) {
+                                sendStageFailureMail("SonarQube Quality Gate", reportPath)
+                            }
+                            error "Stopping pipeline due to Quality Gate failure: ${qg.status}"
+                        } else {
+                        echo "SonarQube Quality Gate passed."
                         }
                     }
                 }
             }
         }
-
-            stage('Generate SonarQube Report') {
-    steps {
-        withCredentials([string(credentialsId: 'JenkinsHello', variable: 'SONAR_TOKEN')]) {
-            script {
-                def reportDir = "sonar-report-${env.BUILD_NUMBER}"
-                def reportPath = "${reportDir}/index.html"
-
-                bat """
-                    if not exist ${reportDir} mkdir ${reportDir}
-                    curl -s -u %SONAR_TOKEN%: "${env.JENKINS_BASE_URL}sonar/api/issues/search?componentKeys=reacttest3&resolved=false" -o sonar-issues.json
-                """
-
-                def json = readJSON file: 'sonar-issues.json'
-
-                def html = """
-                <html><head><title>Sonar Issues Report</title></head><body>
-                <h2>Unresolved Sonar Issues</h2>
-                <table border="1" cellpadding="5" cellspacing="0">
-                    <tr><th>Type</th><th>Severity</th><th>Message</th><th>File</th></tr>
-                """
-
-                json.issues.each { issue ->
-                    def file = issue.component
-                    def message = issue.message
-                    def severity = issue.severity
-                    def type = issue.type
-                    def line = issue.line ?: ''
-                    html += "<tr><td>${type}</td><td>${severity}</td><td>${message}</td><td>${file}:${line}</td></tr>"
-                }
-
-                html += "</table></body></html>"
-                writeFile file: reportPath, text: html
-
-                archiveArtifacts artifacts: "${reportDir}/**", fingerprint: true
-            }
-        }
-    }
-}
-
-        stage('Wait for Sonar Quality Gate') {
-    steps {
-        timeout(time: 5, unit: 'MINUTES') {
-            script {
-                def qg = waitForQualityGate()
-                if (qg.status != 'OK') {
-                    echo "SonarQube Quality Gate failed: ${qg.status}"
-                    def reportPath = "sonar-report-${env.BUILD_NUMBER}/index.html"
-                    if (fileExists(reportPath)) {
-                        sendStageFailureMail("SonarQube Quality Gate", reportPath)
-                    }
-                    error "Stopping pipeline due to Quality Gate failure: ${qg.status}"
-                } else {
-                    echo "SonarQube Quality Gate passed."
-                }
-            }
-        }
-    }
-}
 
         
         stage('Build React App') {
@@ -267,11 +298,11 @@ React build is ready for deployment.
 
 Please approve and choose deployment targets:
 
-Project: ${env.JOB_NAME}  
-Build: #${env.BUILD_NUMBER}  
+Project: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
 Link: ${env.JENKINS_BASE_URL}job/${env.JOB_NAME}/${env.BUILD_NUMBER}/input
 
-Regards,  
+Regards,
 Jenkins
 """,
                         mimeType: 'text/plain'
@@ -295,45 +326,45 @@ Jenkins
         }
 
        stage('Deploy') {
-    steps {
-        script {
-            if (env.DEPLOY_LOCAL == 'true') {
-                node('LocalMachine') {
-                try {
-                    copyBuildArtifacts()
-                    deployReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
-                } catch (err) {
-                    echo "Deployment failed, retrying once..."
-                    try {
-                        deployReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
-                    } catch (secondErr) {
-                        echo "Second attempt failed. Rolling back..."
-                        rollbackReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
-                        error "Deployment failed after retry. Rollback triggered."
-                    }
-                    }
-                }
-            }
-
-            if (env.DEPLOY_MULLAI == 'true') {
-                node('MullaiMachine') {
-                    try {
-                        copyBuildArtifacts()
-                        deployReactApp('D:\\Mullai\\ReactApp', 'D:\\Mullai\\Backups')
-                    } catch (err) {
-                        echo "Deployment failed, retrying once..."
+            steps {
+                script {
+                    if (env.DEPLOY_LOCAL == 'true') {
+                        node('LocalMachine') {
                         try {
-                            deployReactApp('D:\\Mullai\\ReactApp', 'D:\\Mullai\\Backups')
-                        } catch (secondErr) {
-                            echo "Second attempt failed. Rolling back..."
-                            rollbackReactApp('D:\\Mullai\\ReactApp', 'D:\\Mullai\\Backups')
-                            error "Deployment failed after retry. Rollback triggered."
+                            copyBuildArtifacts()
+                            deployReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
+                        } catch (err) {
+                            echo "Deployment failed, retrying once..."
+                            try {
+                                deployReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
+                            } catch (secondErr) {
+                                echo "Second attempt failed. Rolling back..."
+                                rollbackReactApp('C:\\Deploy\\ReactApp', 'C:\\Backup\\ReactApp')
+                                error "Deployment failed after retry. Rollback triggered."
+                            }
+                            }
+                        }
+                    }
+
+                    if (env.DEPLOY_MULLAI == 'true') {
+                        node('MullaiMachine') {
+                            try {
+                                copyBuildArtifacts()
+                                deployReactApp('D:\\Mullai\\ReactApp', 'D:\\Mullai\\Backups')
+                            } catch (err) {
+                                echo "Deployment failed, retrying once..."
+                                try {
+                                    deployReactApp('D:\\Mullai\\ReactApp', 'D:\\Mullai\\Backups')
+                                } catch (secondErr) {
+                                    echo "Second attempt failed. Rolling back..."
+                                    rollbackReactApp('D:\\Mullai\\ReactApp', 'D:\\Mullai\\Backups')
+                                    error "Deployment failed after retry. Rollback triggered."
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
-    }
 }
     }
 
@@ -390,37 +421,69 @@ def deployReactApp(deployDir, backupDir) {
 
     bat """
         @echo off
-        setlocal
+        setlocal enabledelayedexpansion
 
-        echo Cleaning old backups (keep last 5)...
-        for /f "skip=5 delims=" %%A in ('dir "${backupDir}\\ReactBuildBackup-*.zip" /b /o-d') do del "${backupDir}\\%%A"
-
-        echo Creating backup...
-        if not exist "${backupDir}" mkdir "${backupDir}"
-        if exist "${deployDir}\\*" (
-            powershell -Command "Compress-Archive -Path '${deployDir}\\\\*' -DestinationPath '${backupFile}'"
-        ) else (
-            echo No existing files to backup.
+        rem =============================
+        rem Step 1: Ensure backup folder exists
+        rem =============================
+        if not exist "${backupDir}" (
+            echo Creating backup directory...
+            mkdir "${backupDir}"
         )
 
-        if not exist "${backupFile}" (
-            echo Backup failed! Aborting deployment.
+        rem ================================================
+        rem Step 2: Delete old backups (keep only latest 5)
+        rem ================================================
+        echo Cleaning old backups (keeping last 5)...
+        for /f "skip=5 delims=" %%A in ('dir "${backupDir}\\ReactBuildBackup-*.zip" /b /o-d 2^>nul') do (
+            echo Deleting old backup: %%A
+            del "${backupDir}\\%%A"
+        )
+
+        rem ===============================================
+        rem Step 3: Create ZIP backup using built-in methods
+        rem ===============================================
+        echo Checking if there is anything to back up...
+        dir "${deployDir}\\*" >nul 2>&1
+        if !errorlevel! EQU 0 (
+            echo Creating ZIP backup using makecab workaround...
+            makecab /D CompressionType=LZX /D CompressionMemory=21 /D MaxDiskSize=0 /D CabinetName1=backup.cab /D DiskDirectory1="${backupDir}" /f "${deployDir}\\*.*" >nul
+            rename "${backupDir}\\backup.cab" "ReactBuildBackup-${timestamp}.zip"
+        ) else (
+            echo No existing build to backup. Proceeding without backup.
+        )
+
+        rem =====================================================
+        rem Step 4: If backup failed but files existed, abort
+        rem =====================================================
+        if exist "${deployDir}\\*" if not exist "${backupFile}" (
+            echo ERROR: Backup failed even though files existed.
             exit /b 1
         )
 
-        echo Copying new build to ${deployDir}
+        rem =============================
+        rem Step 5: Copy new React build
+        rem =============================
+        echo Copying new build to ${deployDir}...
         xcopy /E /I /Y build\\* "${deployDir}\\"
 
+        rem =======================
+        rem Step 6: Restart Apache
+        rem =======================
         echo Restarting Apache...
-        net stop Apache2.4 || echo Apache not running
+        net stop Apache2.4 >nul 2>&1
         net start Apache2.4
 
+        rem ====================
+        rem Step 7: Restart IIS
+        rem ====================
         echo Restarting IIS...
         iisreset
 
         endlocal
     """
 }
+
 
 def copyBuildArtifacts() {
     copyArtifacts(
