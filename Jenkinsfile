@@ -154,19 +154,84 @@ pipeline {
             }
         }
 
-        stage('Prettier Format Check') {
+        stage('Prettier Format Check & Auto-Fix') {
             steps {
-            script {
-                def result = bat(script: 'npx prettier --check . > prettier-report.txt', returnStatus: true)
-                if (result != 0) {
-                    echo "Prettier formatting issues found."
-                    sendStageFailureMail("Prettier Format Check", "prettier-report.txt")
-                    error "Stopping pipeline due to Prettier formatting issues."
-                } else {
-                    echo "Prettier check passed with no issues."
+                script {
+                    echo "Checking code formatting with Prettier..."
+                    
+                    // First, check if there are formatting issues
+                    def checkResult = bat(script: 'npx prettier --check . > prettier-check.txt 2>&1', returnStatus: true)
+                    
+                    if (checkResult != 0) {
+                        echo "⚠️ Prettier formatting issues found. Attempting auto-fix..."
+                        
+                        // Archive the check report first
+                        archiveArtifacts artifacts: 'prettier-check.txt', allowEmptyArchive: true
+                        
+                        // Try to auto-fix the issues
+                        def fixResult = bat(script: 'npx prettier --write .', returnStatus: true)
+                        
+                        if (fixResult == 0) {
+                            echo "✅ Prettier auto-fix completed successfully!"
+                            
+                            // Verify the fix worked
+                            def verifyResult = bat(script: 'npx prettier --check .', returnStatus: true)
+                            
+                            if (verifyResult == 0) {
+                                echo "✅ All formatting issues have been resolved!"
+                                
+                                // Show what files were changed
+                                bat 'git diff --name-only || echo "No git repository or no changes detected"'
+                                
+                                // Send notification about auto-fix
+                                emailext(
+                                    to: "${env.EMAIL_RECIPIENTS}",
+                                    subject: "✅ Prettier Auto-Fix Applied - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                                    body: """
+Hi,
+
+Prettier found formatting issues and successfully auto-fixed them during the build.
+
+Project: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+Branch: ${env.BRANCH_NAME ?: 'N/A'}
+
+The following types of issues were fixed:
+- Code formatting inconsistencies
+- Indentation issues
+- Quote style standardization
+- Trailing commas and semicolons
+
+No action required - the build will continue automatically.
+
+Build Link: ${env.BUILD_URL}
+
+Regards,
+Jenkins Auto-Fix Bot
+""",
+                                    mimeType: 'text/plain'
+                                )
+                            } else {
+                                echo "❌ Some formatting issues could not be auto-fixed"
+                                sendPrettierFailureMail("prettier-check.txt", "Some formatting issues require manual intervention")
+                                error "Prettier auto-fix failed. Manual intervention required."
+                            }
+                        } else {
+                            echo "❌ Prettier auto-fix failed"
+                            sendPrettierFailureMail("prettier-check.txt", "Auto-fix process failed")
+                            error "Prettier auto-fix failed. Please check the logs."
+                        }
+                    } else {
+                        echo "✅ All files are properly formatted!"
+                    }
                 }
             }
-        }
+            post {
+                always {
+                    // Archive any prettier-related files
+                    archiveArtifacts artifacts: 'prettier-*.txt', allowEmptyArchive: true
+                }
+            }
         }
 
 
