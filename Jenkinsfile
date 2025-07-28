@@ -132,6 +132,26 @@ pipeline {
                     bat 'npx cypress run'
                 }
             }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'cypress/reports/mochawesome/**', allowEmptyArchive: true
+                    publishHTML(target: [
+                        reportDir: 'cypress/reports/mochawesome',
+                        reportFiles: 'index.html',
+                        reportName: 'Cypress E2E Report',
+                        keepAll: true,
+                        alwaysLinkToLastBuild: true
+                    ])
+                }
+                failure {
+                    script {
+                        def e2eReport = "cypress/reports/mochawesome/index.html"
+                        if (fileExists(e2eReport)) {
+                            sendStageFailureMail("Cypress E2E Tests", e2eReport)
+                        }
+                    }
+                }
+            }
         }
 
         stage('Prettier Format Check') {
