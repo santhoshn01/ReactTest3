@@ -1,4 +1,4 @@
-const { defineConfig } = require('cypress')
+const { defineConfig } = require('cypress');
 
 module.exports = defineConfig({
   e2e: {
@@ -7,10 +7,10 @@ module.exports = defineConfig({
       reportDir: 'cypress/reports/mochawesome',
       overwrite: false,
       html: false,
-      json: true
+      json: true,
     },
     setupNodeEvents(on, config) {
       // implement node event listeners here
     },
   },
-})
+});

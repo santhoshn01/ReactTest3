@@ -134,20 +134,20 @@ pipeline {
             }
         }
 
-    // stage('Prettier Format Check') {
-    //     steps {
-    //        script {
-    //            def result = bat(script: 'npx prettier --write . > prettier-report.txt', returnStatus: true)
-    //            if (result != 0) {
-    //                echo "Prettier formatting issues found."
-    //                sendStageFailureMail("Prettier Format Check", "prettier-report.txt")
-    //                error "Stopping pipeline due to Prettier formatting issues."
-    //            } else {
-    //                echo "Prettier check passed with no issues."
-    //            }
-    //        }
-    //    }
-    // }
+        stage('Prettier Format Check') {
+            steps {
+            script {
+                def result = bat(script: 'npx prettier --check . > prettier-report.txt', returnStatus: true)
+                if (result != 0) {
+                    echo "Prettier formatting issues found."
+                    sendStageFailureMail("Prettier Format Check", "prettier-report.txt")
+                    error "Stopping pipeline due to Prettier formatting issues."
+                } else {
+                    echo "Prettier check passed with no issues."
+                }
+            }
+        }
+        }
 
 
         stage('SonarQube Analysis') {
@@ -380,68 +380,38 @@ def deployReactApp(deployDir, backupDir) {
 
     bat """
         @echo off
-        setlocal enabledelayedexpansion
+        setlocal
 
-        rem =============================
-        rem Step 1: Ensure backup folder exists
-        rem =============================
-        if not exist "${backupDir}" (
-            echo Creating backup directory...
-            mkdir "${backupDir}"
-        )
+        echo Cleaning old backups (keep last 5)...
+        for /f "skip=5 delims=" %%A in ('dir "${backupDir}\\ReactBuildBackup-*.zip" /b /o-d') do del "${backupDir}\\%%A"
 
-        rem ================================================
-        rem Step 2: Delete old backups (keep only latest 5)
-        rem ================================================
-        echo Cleaning old backups (keeping last 5)...
-        for /f "skip=5 delims=" %%A in ('dir "${backupDir}\\ReactBuildBackup-*.zip" /b /o-d 2^>nul') do (
-            echo Deleting old backup: %%A
-            del "${backupDir}\\%%A"
-        )
-
-        rem ===============================================
-        rem Step 3: Create ZIP backup using built-in methods
-        rem ===============================================
-        echo Checking if there is anything to back up...
-        dir "${deployDir}\\*" >nul 2>&1
-        if !errorlevel! EQU 0 (
-            echo Creating ZIP backup using makecab workaround...
-            makecab /D CompressionType=LZX /D CompressionMemory=21 /D MaxDiskSize=0 /D CabinetName1=backup.cab /D DiskDirectory1="${backupDir}" /f "${deployDir}\\*.*" >nul
-            rename "${backupDir}\\backup.cab" "ReactBuildBackup-${timestamp}.zip"
+        echo Creating backup...
+        if not exist "${backupDir}" mkdir "${backupDir}"
+        if exist "${deployDir}\\*" (
+            powershell -Command "Compress-Archive -Path '${deployDir}\\\\*' -DestinationPath '${backupFile}'"
         ) else (
-            echo No existing build to backup. Proceeding without backup.
+            echo No existing files to backup.
         )
 
-        rem =====================================================
-        rem Step 4: If backup failed but files existed, abort
-        rem =====================================================
-        if exist "${deployDir}\\*" if not exist "${backupFile}" (
-            echo ERROR: Backup failed even though files existed.
+        if not exist "${backupFile}" (
+            echo Backup failed! Aborting deployment.
             exit /b 1
         )
 
-        rem =============================
-        rem Step 5: Copy new React build
-        rem =============================
-        echo Copying new build to ${deployDir}...
+        echo Copying new build to ${deployDir}
         xcopy /E /I /Y build\\* "${deployDir}\\"
 
-        rem =======================
-        rem Step 6: Restart Apache
-        rem =======================
         echo Restarting Apache...
-        net stop Apache2.4 >nul 2>&1
+        net stop Apache2.4 || echo Apache not running
         net start Apache2.4
 
-        rem ====================
-        rem Step 7: Restart IIS
-        rem ====================
         echo Restarting IIS...
         iisreset
 
         endlocal
     """
 }
+
 
 
 def copyBuildArtifacts() {
