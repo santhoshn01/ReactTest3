@@ -20,6 +20,7 @@
     "lint": "eslint src --ext .js,.jsx",
     "format": "prettier --write .",
     "check-format": "prettier --check .",
+    "cypress:report": "npx mochawesome-merge cypress/reports/mochawesome/*.json | npx mochawesome-report-generator --reportDir cypress/reports/html",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "e2e": "start-server-and-test start http://localhost:3000 cypress:run"

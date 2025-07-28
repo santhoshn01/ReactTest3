@@ -8,7 +8,6 @@ pipeline {
         EMAIL_RECIPIENTS = 'santhosh_n@chelsoft.com'
         JENKINS_BASE_URL = 'http://192.168.100.92:8080/'
         SONAR_HOST = 'http://192.168.100.92:9000'
-        NPM_CACHE_DIR = "${env.WORKSPACE}\\.npm"
         SONAR_PROJECT_KEY = 'reacttest3'
     }
 
@@ -60,9 +59,9 @@ pipeline {
                     def cypressBinaryPath = "${env.USERPROFILE}\\.cache\\Cypress\\${env.CYPRESS_VERSION ?: '14.5.2'}\\Cypress.exe"
 
                     if (fileExists(cypressBinaryPath)) {
-                        echo "✅ Cypress already installed at ${cypressBinaryPath}"
+                        echo "Cypress already installed at ${cypressBinaryPath}"
                     } else {
-                        echo "⬇️ Installing Cypress binary..."
+                        echo "Installing Cypress binary..."
                         bat 'npx cypress install'
                     }
                 }
@@ -112,7 +111,7 @@ pipeline {
                     :loop
                     curl -s -o nul http://localhost:3000
                     if !errorlevel! == 0 (
-                        echo ✅ App is up and responding.
+                        echo App is up and responding.
                         exit /b 0
                     )
 
@@ -120,7 +119,7 @@ pipeline {
                     echo Attempt !ATTEMPT! failed. Waiting...
 
                     if !ATTEMPT! GEQ !MAX_ATTEMPTS! (
-                    echo ❌ App did not respond after !MAX_ATTEMPTS! attempts.
+                    echo App did not respond after !MAX_ATTEMPTS! attempts.
                     exit /b 1
                     )
 
@@ -134,10 +133,10 @@ pipeline {
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'cypress/reports/mochawesome/**', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'cypress/reports/html/**', allowEmptyArchive: true
                     publishHTML(target: [
-                        reportDir: 'cypress/reports/mochawesome',
-                        reportFiles: 'index.html',
+                        reportDir: 'cypress/reports/html',
+                        reportFiles: 'mochawesome.html',
                         reportName: 'Cypress E2E Report',
                         keepAll: true,
                         alwaysLinkToLastBuild: true
@@ -163,7 +162,7 @@ pipeline {
                     def checkResult = bat(script: 'npx prettier --check . > prettier-check.txt 2>&1', returnStatus: true)
                     
                     if (checkResult != 0) {
-                        echo "⚠️ Prettier formatting issues found. Attempting auto-fix..."
+                        echo "Prettier formatting issues found. Attempting auto-fix..."
                         
                         // Archive the check report first
                         archiveArtifacts artifacts: 'prettier-check.txt', allowEmptyArchive: true
@@ -172,13 +171,13 @@ pipeline {
                         def fixResult = bat(script: 'npx prettier --write .', returnStatus: true)
                         
                         if (fixResult == 0) {
-                            echo "✅ Prettier auto-fix completed successfully!"
+                            echo "Prettier auto-fix completed successfully!"
                             
                             // Verify the fix worked
                             def verifyResult = bat(script: 'npx prettier --check .', returnStatus: true)
                             
                             if (verifyResult == 0) {
-                                echo "✅ All formatting issues have been resolved!"
+                                echo "All formatting issues have been resolved!"
                                 
                                 // Show what files were changed
                                 bat 'git diff --name-only || echo "No git repository or no changes detected"'
@@ -186,7 +185,7 @@ pipeline {
                                 // Send notification about auto-fix
                                 emailext(
                                     to: "${env.EMAIL_RECIPIENTS}",
-                                    subject: "✅ Prettier Auto-Fix Applied - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                                    subject: "Prettier Auto-Fix Applied - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                                     body: """
 Hi,
 
@@ -212,17 +211,17 @@ Jenkins Auto-Fix Bot
                                     mimeType: 'text/plain'
                                 )
                             } else {
-                                echo "❌ Some formatting issues could not be auto-fixed"
+                                echo "Some formatting issues could not be auto-fixed"
                                 sendPrettierFailureMail("prettier-check.txt", "Some formatting issues require manual intervention")
                                 error "Prettier auto-fix failed. Manual intervention required."
                             }
                         } else {
-                            echo "❌ Prettier auto-fix failed"
+                            echo "Prettier auto-fix failed"
                             sendPrettierFailureMail("prettier-check.txt", "Auto-fix process failed")
                             error "Prettier auto-fix failed. Please check the logs."
                         }
                     } else {
-                        echo "✅ All files are properly formatted!"
+                        echo "All files are properly formatted!"
                     }
                 }
             }
