@@ -1,0 +1,109 @@
+{
+  "stats": {
+    "suites": 1,
+    "tests": 1,
+    "passes": 0,
+    "pending": 0,
+    "failures": 1,
+    "start": "2025-07-29T03:01:33.839Z",
+    "end": "2025-07-29T03:01:34.758Z",
+    "duration": 919,
+    "testsRegistered": 1,
+    "passPercent": 0,
+    "pendingPercent": 0,
+    "other": 0,
+    "hasOther": false,
+    "skipped": 0,
+    "hasSkipped": false
+  },
+  "results": [
+    {
+      "uuid": "d68147d3-802c-4762-b97e-a5d022eba147",
+      "title": "",
+      "fullFile": "cypress\\e2e\\app.cy.js",
+      "file": "cypress\\e2e\\app.cy.js",
+      "beforeHooks": [],
+      "afterHooks": [],
+      "tests": [],
+      "suites": [
+        {
+          "uuid": "8dce2dd0-d04d-4039-9aac-c1d8905f5fc1",
+          "title": "My First E2E Test",
+          "fullFile": "",
+          "file": "",
+          "beforeHooks": [],
+          "afterHooks": [],
+          "tests": [
+            {
+              "title": "should load the homepage and click the button",
+              "fullTitle": "My First E2E Test should load the homepage and click the button",
+              "timedOut": null,
+              "duration": 851,
+              "state": "failed",
+              "speed": null,
+              "pass": false,
+              "fail": true,
+              "pending": false,
+              "context": null,
+              "code": "cy.visit('http://localhost:3000'); // Make sure your app is running\ncy.contains('Hello, Santhosh!'); // Checks if heading is present\ncy.contains('Click me').click(); // Simulates button click\ncy.contains('You clicked 1 times'); // Verifies click increment",
+              "err": {
+                "message": "CypressError: `cy.visit()` failed trying to load:\n\nhttp://localhost:3000/\n\nWe attempted to make an http request to this URL but the request failed without a response.\n\nWe received this error at the network level:\n\n  > AggregateError\n\nCommon situations why this would fail:\n  - you don't have internet access\n  - you forgot to run / boot your web server\n  - your web server isn't accessible\n  - you have weird network configuration settings on your computer",
+                "estack": "CypressError: `cy.visit()` failed trying to load:\n\nhttp://localhost:3000/\n\nWe attempted to make an http request to this URL but the request failed without a response.\n\nWe received this error at the network level:\n\n  > AggregateError\n\nCommon situations why this would fail:\n  - you don't have internet access\n  - you forgot to run / boot your web server\n  - your web server isn't accessible\n  - you have weird network configuration settings on your computer\n    at <unknown> (http://localhost:55323/__cypress/runner/cypress_runner.js:135059:74)\n    at visitFailedByErr (http://localhost:55323/__cypress/runner/cypress_runner.js:134449:12)\n    at <unknown> (http://localhost:55323/__cypress/runner/cypress_runner.js:135058:11)\n    at tryCatcher (http://localhost:55323/__cypress/runner/cypress_runner.js:1777:23)\n    at Promise._settlePromiseFromHandler (http://localhost:55323/__cypress/runner/cypress_runner.js:1489:31)\n    at Promise._settlePromise (http://localhost:55323/__cypress/runner/cypress_runner.js:1546:18)\n    at Promise._settlePromise0 (http://localhost:55323/__cypress/runner/cypress_runner.js:1591:10)\n    at Promise._settlePromises (http://localhost:55323/__cypress/runner/cypress_runner.js:1667:18)\n    at _drainQueueStep (http://localhost:55323/__cypress/runner/cypress_runner.js:2377:12)\n    at _drainQueue (http://localhost:55323/__cypress/runner/cypress_runner.js:2370:9)\n    at Async._drainQueues (http://localhost:55323/__cypress/runner/cypress_runner.js:2386:5)\n    at Async.drainQueues (http://localhost:55323/__cypress/runner/cypress_runner.js:2256:14)\nFrom Your Spec Code:\n    at Context.eval (webpack://my-react-app/./cypress/e2e/app.cy.js:3:7)\n\nFrom Node.js Internals:\n  AggregateError [ECONNREFUSED]: \n      at internalConnectMultiple (node:net:1122:18)\n      at afterConnectMultiple (node:net:1689:7)",
+                "diff": null
+              },
+              "uuid": "5c85c064-93bd-43fc-99ac-6faba8d59255",
+              "parentUUID": "8dce2dd0-d04d-4039-9aac-c1d8905f5fc1",
+              "isHook": false,
+              "skipped": false
+            }
+          ],
+          "suites": [],
+          "passes": [],
+          "failures": [
+            "5c85c064-93bd-43fc-99ac-6faba8d59255"
+          ],
+          "pending": [],
+          "skipped": [],
+          "duration": 851,
+          "root": false,
+          "rootEmpty": false,
+          "_timeout": 2000
+        }
+      ],
+      "passes": [],
+      "failures": [],
+      "pending": [],
+      "skipped": [],
+      "duration": 0,
+      "root": true,
+      "rootEmpty": true,
+      "_timeout": 2000
+    }
+  ],
+  "meta": {
+    "mocha": {
+      "version": "7.2.0"
+    },
+    "mochawesome": {
+      "options": {
+        "quiet": false,
+        "reportFilename": "mochawesome",
+        "saveHtml": false,
+        "saveJson": true,
+        "consoleReporter": "spec",
+        "useInlineDiffs": false,
+        "code": true
+      },
+      "version": "7.1.3"
+    },
+    "marge": {
+      "options": {
+        "reportDir": "cypress/reports/mochawesome",
+        "overwrite": false,
+        "html": false,
+        "json": true
+      },
+      "version": "6.2.0"
+    }
+  }
+}
