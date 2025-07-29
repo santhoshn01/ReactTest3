@@ -30,7 +30,7 @@ jsonFiles.forEach(file => {
         totalDuration += reportData.stats.duration || 0;
     }
 });
-/ Generate simple HTML
+// Generate simple HTML
 const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
