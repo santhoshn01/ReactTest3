@@ -8,27 +8,31 @@ const htmlOutputDir = 'cypress/reports/html';
 
 // Ensure output directory exists
 if (!fs.existsSync(htmlOutputDir)) {
-    fs.mkdirSync(htmlOutputDir, { recursive: true });
+  fs.mkdirSync(htmlOutputDir, { recursive: true });
 }
 
 // Read all JSON files
-const jsonFiles = fs.readdirSync(reportsDir).filter(file => file.endsWith('.json'));
+const jsonFiles = fs
+  .readdirSync(reportsDir)
+  .filter((file) => file.endsWith('.json'));
 let allTests = [];
 let totalPassed = 0;
 let totalFailed = 0;
 let totalDuration = 0;
-jsonFiles.forEach(file => {
-    const reportData = JSON.parse(fs.readFileSync(path.join(reportsDir, file), 'utf8'));
-    
-    if (reportData.tests) {
-        allTests = allTests.concat(reportData.tests);
-    }
-    
-    if (reportData.stats) {
-        totalPassed += reportData.stats.passes || 0;
-        totalFailed += reportData.stats.failures || 0;
-        totalDuration += reportData.stats.duration || 0;
-    }
+jsonFiles.forEach((file) => {
+  const reportData = JSON.parse(
+    fs.readFileSync(path.join(reportsDir, file), 'utf8')
+  );
+
+  if (reportData.tests) {
+    allTests = allTests.concat(reportData.tests);
+  }
+
+  if (reportData.stats) {
+    totalPassed += reportData.stats.passes || 0;
+    totalFailed += reportData.stats.failures || 0;
+    totalDuration += reportData.stats.duration || 0;
+  }
 });
 // Generate simple HTML
 const htmlContent = `
@@ -80,7 +84,9 @@ const htmlContent = `
 
         <h2>Test Details</h2>
         <div class="tests">
-            ${allTests.map(test => `
+            ${allTests
+              .map(
+                (test) => `
                 <div class="test-item ${test.state === 'passed' ? 'test-passed' : 'test-failed'}">
                     <div class="test-title">
                         ${test.state === 'passed' ? '✅' : '❌'} ${test.fullTitle || test.title}
@@ -88,7 +94,9 @@ const htmlContent = `
                     <div class="test-duration">Duration: ${test.duration || 0}ms</div>
                     ${test.err ? `<div style="color: #dc3545; margin-top: 10px; font-family: monospace; font-size: 0.9em;">${test.err.message}</div>` : ''}
                 </div>
-            `).join('')}
+            `
+              )
+              .join('')}
         </div>
         
         <div style="margin-top: 30px; text-align: center; color: #6c757d; font-size: 0.9em;">
