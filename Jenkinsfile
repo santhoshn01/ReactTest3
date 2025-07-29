@@ -100,58 +100,75 @@ pipeline {
                     bat 'npm run build'
                     bat 'start /B cmd /C "npx serve -s build -l 3000"'
 
-                    // Wait for server using pure CMD
+                    // Wait for server
                     bat """
                     @echo off
                     setlocal EnableDelayedExpansion
-
                     set "MAX_ATTEMPTS=30"
                     set "ATTEMPT=0"
-
                     :loop
                     curl -s -o nul http://localhost:3000
                     if !errorlevel! == 0 (
                         echo App is up and responding.
                         exit /b 0
                     )
-
                     set /a ATTEMPT+=1
                     echo Attempt !ATTEMPT! failed. Waiting...
-
                     if !ATTEMPT! GEQ !MAX_ATTEMPTS! (
-                    echo App did not respond after !MAX_ATTEMPTS! attempts.
-                    exit /b 1
+                        echo App did not respond after !MAX_ATTEMPTS! attempts.
+                        exit /b 1
                     )
-
                     timeout /t 1 > nul
                     goto loop
                     """
 
-                    // Run Cypress after confirming app is up
-                    bat 'npx cypress run'
+                    // Create reports directory structure
+                    bat """
+                        if not exist "cypress\\reports" mkdir "cypress\\reports"
+                        if not exist "cypress\\reports\\html" mkdir "cypress\\reports\\html"
+                        if not exist "cypress\\reports\\mochawesome" mkdir "cypress\\reports\\mochawesome"
+                    """
+
+                    // Run Cypress tests - only generate JSON reports
+                    bat 'npx cypress run --reporter mochawesome --reporter-options "reportDir=cypress/reports/mochawesome,overwrite=false,html=false,json=true"'
+                    
+                    // Copy the simple report generator to your project root
+                    bat 'node generate-simple-report.js'
+                    
+                    bat 'dir cypress\\reports\\html /s'
                 }
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'cypress/reports/html/**', allowEmptyArchive: true
-                    publishHTML(target: [
-                        reportDir: 'cypress/reports/html',
-                        reportFiles: 'mochawesome.html',
-                        reportName: 'Cypress E2E Report',
-                        keepAll: true,
-                        alwaysLinkToLastBuild: true
-                    ])
-                }
-                failure {
+                    // Archive HTML reports
+                    archiveArtifacts artifacts: 'cypress/reports/**/*', allowEmptyArchive: true
+                    
                     script {
-                        def e2eReport = "cypress/reports/mochawesome/index.html"
-                        if (fileExists(e2eReport)) {
-                            sendStageFailureMail("Cypress E2E Tests", e2eReport)
+                        // Check if the simple report exists
+                        def fileExists = bat(script: 'if exist "cypress\\reports\\html\\simple-report.html" echo EXISTS', returnStdout: true).trim()
+                        
+                        if (fileExists.contains('EXISTS')) {
+                            echo "✅ Found simple-report.html, publishing HTML report..."
+                            
+                            publishHTML(target: [
+                                reportDir: 'cypress/reports/html',
+                                reportFiles: 'simple-report.html',
+                                reportName: 'Cypress E2E Report',
+                                keepAll: true,
+                                alwaysLinkToLastBuild: true,
+                                allowMissing: false,
+                                useWrapper: false
+                            ])
+                            
+                            echo "📊 HTML report published successfully"
+                        } else {
+                            echo "❌ simple-report.html not found"
+                            bat 'dir cypress\\reports\\html /s'
                         }
                     }
                 }
             }
-        }
+}
 
         stage('Prettier Format Check & Auto-Fix') {
             steps {
