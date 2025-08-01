@@ -175,7 +175,7 @@ pipeline {
                 script {
                     def jmeterBinPath = 'D:\\Downloads\\apache-jmeter-5.6.3\\apache-jmeter-5.6.3\\bin'
                     def jmeterExe = "${jmeterBinPath}\\jmeter.bat"
-                    def testPlan = 'performance-tests\\local02.jmx'
+                    def testPlan = 'performance-tests\\localhost.jmx'
                     def resultFile = 'performance-tests\\results.jtl'
                     def reportDir = 'performance-tests\\report'
 
