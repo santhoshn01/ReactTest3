@@ -269,12 +269,12 @@ Jenkins Auto-Fix Bot
                                 )
                             } else {
                                 echo "Some formatting issues could not be auto-fixed"
-                                sendPrettierFailureMail("prettier-check.txt", "Some formatting issues require manual intervention")
+                                sendStageFailureMail("Some formatting issues require manual intervention","prettier-check.txt")
                                 error "Prettier auto-fix failed. Manual intervention required."
                             }
                         } else {
                             echo "Prettier auto-fix failed"
-                            sendPrettierFailureMail("prettier-check.txt", "Auto-fix process failed")
+                            sendStageFailureMail( "Auto-fix process failed","prettier-check.txt")
                             error "Prettier auto-fix failed. Please check the logs."
                         }
                     } else {
